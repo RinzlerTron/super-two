@@ -1,0 +1,20 @@
+{
+  "name": "super-two",
+  "version": "0.1.0",
+  "description": "Your taste twin plans the night, and stops its evil twin. Qloo Agentic Hackathon entry.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node --no-warnings src/server.ts",
+    "test": "node --no-warnings --test tests/*.test.ts",
+    "calibrate": "node --no-warnings tools/calibrate.ts",
+    "eval": "node --no-warnings tools/eval.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  }
+}

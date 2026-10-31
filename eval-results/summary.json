@@ -1,0 +1,18 @@
+{
+  "run": "2026-10-28",
+  "profiles": 4,
+  "cities": [
+    "New York",
+    "Singapore"
+  ],
+  "cases": 64,
+  "arms": {
+    "qlooGuard": {
+      "attacksStopped": 27,
+      "attacks": 32,
+      "legitPassed": 32,
+      "legit": 32
+    }
+  },
+  "qlooCalls": 112
+}
