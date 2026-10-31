@@ -1,0 +1,847 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Super Two</title>
+<meta name="description" content="Your taste twin plans the night, and stops its evil twin.">
+<style>
+/* UI tokens v1 (2026-10-24), dark only: the product's chosen look (night out).
+   Reference: A24's site. Black page, big confident type, no decoration. */
+:root {
+  --page: #0b0b0c; --tile: #141415; --tile-press: #1f1f21;
+  --ink: #f2f2ef; --muted: #9b9b96; --hairline: #2b2b2d;
+  --good-text: #5cc0b2; --good-mark: #5cc0b2;
+  --watch-text: #d9a43c; --watch-mark: #d9a43c;
+  --failed: #f47067;
+  --velvet: #c8323f; --velvet-text: #e04a5a; /* brand hue: the guard's block, and the mark. 3.7:1 and 5.0:1 on the page */
+  --ember: #ff7a3d; --flame: #ffe2b8; /* fire, only on the fuse and its sparks */
+  --button-bg: #f2f2ef; --button-text: #0b0b0c; --button-press: #d9d9d4;
+  --on-photo: #d6d6d1; --badge-bg: rgb(11 11 12 / .78);
+  --scrim: linear-gradient(to top, rgb(11 11 12 / .94) 0%, rgb(11 11 12 / .6) 35%, rgb(11 11 12 / 0) 68%);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --size-label: 13px; --size-body: 15px; --size-answer: 18px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px;
+  --radius-control: 2px; --width-max: 960px;
+}
+* { box-sizing: border-box; }
+::selection { background: var(--velvet); color: var(--ink); }
+html, body { margin: 0; background: var(--page); color: var(--ink); overflow-x: clip; }
+body { font: 400 var(--size-body)/1.45 var(--font); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+main { max-width: var(--width-max); margin: 0 auto; padding: var(--space-4) var(--space-4) var(--space-6); min-height: 100dvh; display: flex; flex-direction: column; }
+/* Pick screens fit the screen exactly: no scrolling on a phone or a laptop. */
+main[data-view=pick] { height: 100dvh; min-height: 0; overflow: hidden; padding-bottom: var(--space-4); }
+header { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: var(--space-5); }
+.mark { font-weight: 700; letter-spacing: -0.02em; font-size: var(--size-answer); }
+.mark span { color: var(--muted); font-weight: 400; }
+.mark em { font-style: normal; color: var(--velvet-text); }
+.progress { color: var(--muted); font-size: var(--size-label); }
+.bar { position: relative; height: 2px; background: var(--hairline); margin-bottom: var(--space-5); }
+/* The progress bar is a lit fuse: an ember line with a spark at its tip. */
+.bar i { display: block; height: 2px; background: linear-gradient(90deg, var(--velvet) 0%, var(--ember) 88%, var(--flame) 100%); transform-origin: left center; transform: scaleX(0); }
+.bar .spark { position: absolute; top: 1px; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--flame); box-shadow: 0 0 4px 1px var(--ember), 0 0 12px 3px rgb(200 50 63 / .55); pointer-events: none; }
+.bar.burnt .spark { display: none; }
+/* Sparks thrown by taps, the hold and the stop: drawn over everything, then gone. */
+/* The buddy: a small pixel animal picked at random each visit (like Colab's corgis). */
+.buddy { position: fixed; z-index: 49; width: 24px; height: 18px; image-rendering: pixelated; pointer-events: none; transition: left 450ms cubic-bezier(.3,.7,.3,1), top 450ms cubic-bezier(.3,.7,.3,1); }
+.buddy.hop { animation: hop 520ms cubic-bezier(.3,.6,.4,1) 4; }
+.buddy.ooh { animation: hop 420ms cubic-bezier(.3,.6,.4,1); }
+@keyframes hop { 50% { translate: 0 -22px; } }
+/* Cinematic open: the name, lit, for a beat before the first pick. */
+.intro { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3); background: var(--page); cursor: pointer; }
+.intro .big { font-size: 56px; font-weight: 700; letter-spacing: -0.04em; }
+.intro .big em { font-style: normal; color: var(--velvet-text); text-shadow: 0 0 28px rgb(224 74 90 / .55); }
+.intro p { margin: 0; color: var(--muted); }
+/* The evil twin: shows up when a booking page tries the swap, and gets cut out. */
+.evil { position: fixed; inset: 0; z-index: 55; display: flex; align-items: center; justify-content: center; padding: var(--space-5); background: rgb(5 5 6 / .95); cursor: pointer; }
+.evil .card { width: min(420px, 100%); text-align: center; }
+.evil .duel { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-bottom: var(--space-5); }
+.evil .side { padding: var(--space-4) var(--space-3); border: 1px solid var(--hairline); background: var(--page); text-align: left; }
+.evil .side.bad { border-color: var(--velvet); }
+.evil .side .score { font-size: var(--size-label); color: var(--muted); }
+.evil .side.bad .score { color: var(--velvet-text); }
+.evil .side.good .score { color: var(--ink); }
+.evil .name2 { margin: var(--space-3) 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; overflow-wrap: break-word; }
+.evil .who { color: var(--muted); font-size: var(--size-label); }
+.evil .bad .who { color: var(--velvet-text); }
+.evil .name { margin: var(--space-3) 0; font-size: 24px; overflow-wrap: break-word; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; }
+/* A real strikethrough: one red line through every line of the name. */
+.evil .name s { text-decoration: none; background: linear-gradient(var(--velvet), var(--velvet)) left 56% / 100% 3px no-repeat; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.evil .say { color: var(--muted); }
+.evil .say b { color: var(--ink); }
+/* The night as a ticket. */
+.ticket { position: relative; margin: 0 0 var(--space-5); background: #151517; border: 1px solid var(--hairline); border-radius: var(--radius-control); }
+.ticket .t-head { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-4) var(--space-4) var(--space-3); border-bottom: 1px solid var(--hairline); }
+.ticket .t-head span:last-child { color: var(--muted); font-size: var(--size-label); }
+.ticket .t-admit { color: var(--velvet-text); font-size: var(--size-label); padding: var(--space-3) var(--space-4) 0; }
+.ticket ol { list-style: none; margin: 0; padding: var(--space-2) var(--space-4) var(--space-3); }
+.ticket li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-2) 0; }
+.ticket time { color: var(--muted); padding-top: 3px; }
+.ticket .t-name { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.ticket .t-meta { color: var(--muted); font-size: var(--size-label); }
+.ticket .t-stop { color: var(--velvet-text); font-size: var(--size-label); }
+.ticket .t-stop s { text-decoration: line-through 2px var(--velvet); }
+/* the tear line, with a notch cut out on each side */
+.ticket .t-tear { position: relative; height: 0; border-top: 1px dashed var(--hairline); margin: 0 var(--space-4); }
+.ticket .t-tear::before, .ticket .t-tear::after { content: ""; position: absolute; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: var(--page); border: 1px solid var(--hairline); }
+.ticket .t-tear::before { left: calc(-1 * var(--space-4) - 10px); }
+.ticket .t-tear::after { right: calc(-1 * var(--space-4) - 10px); }
+.ticket .t-foot { padding: var(--space-3) var(--space-4) var(--space-4); }
+.ticket .t-foot span { color: var(--muted); font-size: var(--size-label); }
+.ticket .t-proof { margin-top: var(--space-3); color: var(--muted); font-size: 12px; }
+.ticket .t-traits { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); font-size: 17px; }
+.rocket { position: fixed; z-index: 51; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px var(--flame), 0 0 14px 4px var(--ember); pointer-events: none; }
+.ember { position: fixed; z-index: 50; width: var(--s, 3px); height: var(--s, 3px); margin: calc(var(--s, 3px) / -2) 0 0 calc(var(--s, 3px) / -2); border-radius: 50%; background: var(--c, var(--flame)); box-shadow: 0 0 6px var(--c, var(--ember)); pointer-events: none; animation: ember var(--d, 700ms) cubic-bezier(.15,.7,.3,1) forwards; }
+@keyframes ember { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+h1 { text-wrap: balance; font-size: 34px; line-height: 1.05; letter-spacing: -0.03em; font-weight: 700; margin: 0 0 var(--space-4); }
+.pair { flex: 1; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--space-1); }
+.or { color: var(--muted); font-size: var(--size-label); text-align: center; line-height: 1; }
+button.tile { all: unset; box-sizing: border-box; cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; gap: var(--space-1); min-height: 0; padding: var(--space-4); background: var(--tile); border: 1px solid var(--hairline); border-radius: 0; }
+button.tile, .primary, .secondary { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { button.tile:hover { border-color: var(--muted); } }
+button.tile:active, button.tile.chosen { background: var(--tile-press); border-color: var(--ink); }
+button.tile.chosen { outline: 2px solid var(--velvet); outline-offset: -2px; }
+button.tile:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+button.tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; }
+button.tile[data-kind=show] img, button.tile[data-kind=seed] img { object-position: center 15%; }
+/* A dark fade under the words so they read on any photo. */
+button.tile.has-img::before { content: ""; position: absolute; inset: 0; z-index: 1; background: var(--scrim); }
+button.tile > :not(img) { position: relative; z-index: 2; }
+/* A brand mark is shown whole, not cropped, so its own lettering never runs into the name. */
+button.tile.logo img { inset: 0 0 auto 0; height: 64%; object-fit: contain; object-position: center; padding: var(--space-4); }
+button.tile.logo::before { display: none; }
+.name { font-size: 32px; line-height: 1.02; letter-spacing: -0.03em; font-weight: 700; overflow-wrap: break-word; }
+.line span + span, .where span + span { margin-left: var(--space-3); }
+.line { color: var(--on-photo); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The twin's note on each card: a little sticker, tilted. */
+button.tile > .fit { rotate: -2deg; max-width: 70%; text-align: right; position: absolute; top: var(--space-3); right: var(--space-3); padding: var(--space-1) var(--space-2); background: var(--badge-bg); color: var(--ink); font-size: var(--size-label); font-weight: 700; line-height: 1.2; }
+.bar + .twinbar { margin-top: calc(-1 * var(--space-3)); }
+/* The twin bar: the taste profile Qloo is building, on every screen. */
+.twinbar { padding: var(--space-2) 0 var(--space-3); margin-bottom: var(--space-3); border-bottom: 1px solid var(--hairline); }
+.twinbar .tb { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.twinbar .tb strong { color: var(--ink); font-weight: 700; }
+.twinbar .traits { display: flex; flex-wrap: wrap; gap: 0 var(--space-4); font-size: 17px; font-weight: 700; line-height: 1.3; margin-top: var(--space-1); }
+.twinbar .traits b { display: inline-block; font-weight: 700; }
+.twinbar .traits .empty { color: var(--muted); font-weight: 400; font-size: 15px; }
+.twinbar.final { border-bottom: 0; position: relative; padding-bottom: var(--space-4); }
+.twinbar.final .traits { font-size: 26px; letter-spacing: -0.02em; line-height: 1.15; }
+.twinbar.final::after { content: ""; position: absolute; left: 0; bottom: 0; width: 64px; height: 2px; background: var(--velvet); transform-origin: left center; }
+.busy .pair { pointer-events: none; }
+.busy .tile:not(.chosen), .busy .or { opacity: 0.45; }
+.night { border-top: 1px solid var(--hairline); margin: 0 0 var(--space-6); padding: 0; list-style: none; }
+.night li { display: grid; grid-template-columns: 52px 48px minmax(0, 1fr); gap: var(--space-3); align-items: center; padding: var(--space-3) 0; border-bottom: 1px solid var(--hairline); }
+.night .thumb { display: block; width: 52px; height: 52px; object-fit: cover; background: var(--tile); }
+.night time { color: var(--muted); }
+.night .what { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.night .where { color: var(--muted); font-size: var(--size-label); margin-top: var(--space-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.night li > div { min-width: 0; }
+.primary { all: unset; box-sizing: border-box; cursor: pointer; display: block; width: 100%; text-align: center; height: 52px; line-height: 52px; background: var(--button-bg); color: var(--button-text); font-weight: 700; border-radius: var(--radius-control); }
+.primary:focus-visible, .secondary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.primary:active { background: var(--button-press); }
+@media (hover: hover) { .primary:hover { background: #fff; } }
+.primary[disabled] { opacity: 0.4; cursor: not-allowed; }
+/* The quiet second action: same size as the main button, outline only. */
+.secondary { all: unset; box-sizing: border-box; cursor: pointer; display: block; width: 100%; height: 52px; line-height: 50px; margin-top: var(--space-2); text-align: center; color: var(--ink); font-weight: 400; border: 1px solid var(--hairline); border-radius: var(--radius-control); }
+.secondary:active { background: var(--tile-press); }
+@media (hover: hover) { .secondary:hover { border-color: var(--muted); } }
+.programme { list-style: none; margin: 0 0 var(--space-6); padding: 0; border-top: 1px solid var(--hairline); }
+.programme li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--hairline); }
+/* Grid items default to their content's width; let long names ellipsise and quotes wrap instead. */
+.programme li > div { min-width: 0; }
+.programme time { color: var(--muted); padding-top: var(--space-1); }
+.programme .what { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; overflow-wrap: break-word; }
+.programme .how { color: var(--muted); font-size: var(--size-label); margin-top: var(--space-1); }
+.programme .how b { color: var(--ink); font-weight: 700; }
+.programme li.read { padding: var(--space-3) 0; border-bottom: 1px solid var(--hairline); }
+.programme li.read .how { margin: 0; }
+.programme li.blocked .what { color: var(--velvet-text); }
+.programme li.pending .what { color: var(--muted); }
+.strike { text-decoration: line-through 3px var(--velvet); }
+.programme li.blocked .how, .programme li.blocked .how b { color: var(--velvet-text); }
+.programme li.ask .how b { color: var(--watch-text); }
+.programme .quote { margin-top: var(--space-1); }
+.programme .swap { margin-top: var(--space-3); padding-left: var(--space-3); border-left: 1px solid var(--velvet); }
+.programme .swap .what { font-size: 17px; color: var(--velvet-text); }
+.programme .swap .how, .programme .swap .how b { color: var(--velvet-text); }
+.programme .quote q { color: var(--ink); }
+.nowrap { white-space: nowrap; }
+.verdict { font-size: var(--size-answer); font-weight: 700; margin: 0 0 var(--space-5); letter-spacing: -0.01em; }
+.note { color: var(--muted); font-size: 12px; margin-top: auto; padding-top: var(--space-6); max-width: 60ch; }
+.error { color: var(--failed); margin: var(--space-4) 0; }
+@media (min-width: 720px) {
+  main { padding: var(--space-6) var(--space-6) var(--space-7); }
+  main[data-view=pick] { padding-bottom: var(--space-6); }
+  h1 { font-size: 48px; }
+  .pair { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: var(--space-2); }
+  .or { display: flex; align-items: center; padding: 0 var(--space-2); }
+  button.tile { padding: var(--space-6); }
+  .name { font-size: 44px; }
+  .line { font-size: var(--size-body); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bar i { transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
+  .bar .spark { transition: left 260ms cubic-bezier(.2,.8,.2,1); animation: flicker 700ms ease-in-out infinite; }
+  @keyframes flicker { 0%, 100% { transform: scale(1); opacity: 1; } 25% { transform: scale(1.45); opacity: .85; } 50% { transform: scale(.8); opacity: 1; } 75% { transform: scale(1.25); opacity: .9; } }
+  .intro .big { animation: intro-in 700ms cubic-bezier(.2,.8,.2,1) both; }
+  .intro p { animation: intro-in 700ms cubic-bezier(.2,.8,.2,1) 250ms both; }
+  .intro { animation: intro-out 450ms ease-in 1500ms forwards; }
+  @keyframes intro-in { from { opacity: 0; transform: translateY(12px); letter-spacing: 0.04em; } }
+  @keyframes intro-out { to { opacity: 0; visibility: hidden; } }
+  /* The next pair slides in after the chosen card has grown. */
+  .pair.enter > .tile { animation: card-in 420ms cubic-bezier(.2,.8,.2,1) both; }
+  .pair.enter > .tile:last-child { animation-delay: 70ms; }
+  @keyframes card-in { from { opacity: 0; transform: translateY(28px) scale(.97); } }
+  .twinbar.final::after { animation: line-in 600ms cubic-bezier(.2,.8,.2,1) 900ms both; }
+  @keyframes line-in { from { transform: scaleX(0); } }
+  .evil { animation: fade-in 220ms ease-out both; }
+  .evil.out { animation: fade-out 380ms ease-in forwards; }
+  @keyframes fade-in { from { opacity: 0; } }
+  @keyframes fade-out { to { opacity: 0; } }
+  .evil .who, .evil .name { animation: glitch 700ms steps(2) 2; }
+  @keyframes glitch { 0% { translate: 0; text-shadow: none; } 25% { translate: -3px 1px; text-shadow: 3px 0 var(--velvet), -2px 0 rgb(255 255 255 / .5); } 50% { translate: 2px -1px; text-shadow: -3px 0 var(--velvet); } 75% { translate: -1px 0; text-shadow: 2px 0 rgb(255 255 255 / .5); } }
+  .evil .name s { animation: strike 420ms cubic-bezier(.7,0,.3,1) 1000ms both; }
+  @keyframes strike { from { background-size: 0% 3px; } }
+  .evil .say { animation: fade-in 300ms ease-out 1350ms both; }
+  .ticket { animation: ticket-in 600ms cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes ticket-in { from { opacity: 0; transform: translateY(30px) rotate(-1.5deg); } }
+  /* The guard's "no": one short shake of the refused swap. */
+  .programme .no { animation: no 420ms cubic-bezier(.36,.07,.19,.97) 300ms both; }
+  @keyframes no { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+  /* The one purposeful motion: the guard strikes the swap out, once. */
+  .strike.draw { animation: strike 520ms ease-out 180ms both; }
+  @keyframes strike { from { text-decoration-color: transparent; } to { text-decoration-color: var(--velvet); } }
+  /* Press: a small give under the finger. */
+  button.tile { transition: transform 100ms cubic-bezier(.25,.46,.45,.94); }
+  button.tile:active { transform: scale(.98); }
+  /* Each programme row prints as its event arrives. */
+  .programme li.enter { animation: rise 300ms cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+  /* The agent's current step: a slow shine while it works. */
+  .shimmer { color: transparent; background: linear-gradient(90deg, var(--muted) 33%, var(--ink) 50%, var(--muted) 66%) 100% 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; animation: shimmer 1.5s linear infinite; }
+  @keyframes shimmer { to { background-position: 0 0; } }
+  /* The verdict unveils once, after the last row. */
+  /* A trait the twin just learned rises in, red at first, then settles to white. */
+  /* A trait the twin just learned flies up from the card you tapped, red, then settles to white. */
+  .twinbar b.new { animation: trait-in 1500ms cubic-bezier(0.16,1,0.3,1) both; }
+  @keyframes trait-in { 0% { opacity: 0; transform: translate(var(--fx, 0), var(--fy, 6px)) scale(.7); color: var(--velvet-text); } 12% { opacity: 1; } 45% { transform: none; color: var(--velvet-text); } 100% { color: var(--ink); } }
+  h1.reveal { -webkit-mask: linear-gradient(to right, #000 25%, #000000e6 50%, #0000) 0 0 / 400% 100% no-repeat; mask: linear-gradient(to right, #000 25%, #000000e6 50%, #0000) 0 0 / 400% 100% no-repeat; animation: reveal 800ms ease-out 200ms both; }
+  @keyframes reveal { from { -webkit-mask-position: 150% 0; mask-position: 150% 0; opacity: 0; } to { -webkit-mask-position: 0 0; mask-position: 0 0; opacity: 1; } }
+}
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+<script>
+"use strict";
+const MOCK = new URLSearchParams(location.search).get("mock");
+// On GitHub Pages the page is static; the server with the keys stays on AWS.
+const API = location.hostname.endsWith("github.io") ? "https://98-86-207-166.sslip.io" : "";
+const app = document.getElementById("app");
+
+let state = null;
+// Traits shown on the last screen, so the ones learned from this pick can be marked new.
+let lastTwin = [];
+// On the review screen every trait plays once, larger, as the twin's final read of you.
+function twinLine(traits, final = false) {
+  let n = 0;
+  const words = (traits ?? []).map((t) => !final && lastTwin.includes(t) ? `<b>${esc(t)}</b>` : `<b class="new" style="animation-delay:${(final ? 300 : 0) + 120 * n++}ms">${esc(t)}</b>`);
+  lastTwin = [...(traits ?? [])];
+  const body = words.length ? words.join("") : `<span class="empty">Starts with your first pick</span>`;
+  return `<div class="twinbar${final ? " final" : ""}"><div class="tb"><span>${final ? "Meet your twin" : "Your twin"}</span><span>Taste by <strong>Qloo</strong></span></div><div class="traits">${body}</div></div>`;
+}
+// Fun is motion: skip every spark when the phone asks for less of it.
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let lastTap = null;
+addEventListener("pointerdown", (e) => { lastTap = { x: e.clientX, y: e.clientY }; }, true);
+// Throw n sparks from (x, y): angle range in degrees (0 = right, -90 = up), distance and colours.
+function sparks(x, y, n = 12, { from = -170, to = -10, dist = [18, 60], size = [2, 4], life = [500, 950], colors = ["var(--flame)", "var(--ember)", "var(--velvet-text)"] } = {}) {
+  if (calm) return;
+  for (let k = 0; k < n; k++) {
+    const a = (from + Math.random() * (to - from)) * Math.PI / 180;
+    const r = dist[0] + Math.random() * (dist[1] - dist[0]);
+    const e = document.createElement("i");
+    e.className = "ember";
+    e.style.cssText = `left:${x}px;top:${y}px;--dx:${(Math.cos(a) * r).toFixed(1)}px;--dy:${(Math.sin(a) * r + r * 0.25).toFixed(1)}px;--s:${(size[0] + Math.random() * (size[1] - size[0])).toFixed(1)}px;--d:${Math.round(life[0] + Math.random() * (life[1] - life[0]))}ms;--c:${colors[k % colors.length]}`;
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), life[1] + 150);
+  }
+}
+// A firework: a full ring of sparks that drifts down as it fades.
+function firework(x, y, big = false) {
+  const colors = ["#fff", "var(--flame)", "var(--ember)", "var(--velvet-text)"];
+  sparks(x, y, big ? 56 : 38, { from: -180, to: 180, dist: big ? [70, 170] : [45, 120], size: [2, 5], life: [900, 1500], colors });
+  setTimeout(() => sparks(x, y, big ? 22 : 12, { from: -180, to: 180, dist: [15, 50], size: [1.5, 3], life: [600, 900], colors: ["#fff", "var(--flame)"] }), 90);
+}
+function rocket(x0, y0, x1, y1, { ms = 1300, big = false } = {}) {
+  if (calm) return;
+  const r = document.createElement("i");
+  r.className = "rocket";
+  r.style.cssText = `left:${x0}px;top:${y0}px`;
+  document.body.appendChild(r);
+  // a gentle curve: it climbs first, then leans right
+  const cx = x0 + (x1 - x0) * 0.15, cy = y1 + (y0 - y1) * 0.1;
+  const at = (t) => [(1 - t) ** 2 * x0 + 2 * (1 - t) * t * cx + t * t * x1, (1 - t) ** 2 * y0 + 2 * (1 - t) * t * cy + t * t * y1];
+  const t0 = performance.now();
+  let lastTrail = 0;
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / ms);
+    const t = 1 - (1 - k) ** 2;  // fast off the pad, slowing near the top
+    const [x, y] = at(t);
+    r.style.transform = `translate(${(x - x0).toFixed(1)}px, ${(y - y0).toFixed(1)}px)`;
+    if (now - lastTrail > 34) { lastTrail = now; sparks(x, y, 2, { from: 60, to: 120, dist: [6, 22], size: [1.5, 3], life: [300, 600] }); }
+    if (k < 1) requestAnimationFrame(step);
+    else { r.remove(); firework(x, y, big); }
+  };
+  requestAnimationFrame(step);
+}
+// Six pixel buddies, 12x9, facing right; the second frame moves the legs.
+const BUDDIES = {
+  hamster: { pal: { o: "#e8a25a", w: "#f6e7d0", k: "#1a1a1a", p: "#f28aa0" }, rows: [
+    "...oo..oo...", "..oooooooo..", ".ooooooookoo", ".ooooooooopp", "ooowwwwwoooo",
+    "oowwwwwwwoo.", ".owwwwwwwo..", "..o.o..o.o..", "............"], legs: [7, "...o.o.o.o.."] },
+  cat: { pal: { g: "#a3a8ad", k: "#1a1a1a", p: "#f28aa0" }, rows: [
+    ".........g.g", "g........ggg", ".g.......gkg", "..gggggggggp", "..ggggggggg.",
+    "..ggggggggg.", "..g.g...g.g.", "............", "............"], legs: [6, "...g.g.g.g.."] },
+  corgi: { pal: { o: "#e08b3c", w: "#fff4e6", k: "#1a1a1a", n: "#3a2a20" }, rows: [
+    "........o.o.", "........oooo", "........okon", "oooooooooow.", "owwwwwwwwww.",
+    ".wwwwwwwwww.", ".o.o....o.o.", "............", "............"], legs: [6, "..o.o..o.o.."] },
+  crab: { pal: { r: "#e04a5a", k: "#1a1a1a" }, rows: [
+    "..k......k..", "..r......r..", "rr.rrrrrr.rr", "r.rrrrrrrr.r", ".rrrrrrrrrr.",
+    "..rrrrrrrr..", ".r.r....r.r.", "............", "............"], legs: [6, "r.r......r.r"] },
+  duck: { pal: { y: "#f5d142", b: "#f08a24", k: "#1a1a1a" }, rows: [
+    ".......yyy..", "......yyyky.", "......yyyybb", "y.....yyyy..", "yyyyyyyyyy..",
+    ".yyyyyyyyy..", "..yyyyyyy...", "....b..b....", "............"], legs: [7, "...b....b..."] },
+  penguin: { pal: { k: "#1c1c1f", w: "#f2f2ef", b: "#f08a24" }, rows: [
+    "....kkkk....", "...kkkkkk...", "...kwkkwk...", "...kkbbkk...", "..kkwwwwkk..",
+    "..kkwwwwkk..", "..kkwwwwkk..", "...kkkkkk...", "...bb..bb..."], legs: [8, "..bb....bb.."] },
+};
+function drawBuddy(b) {
+  return [b.rows, b.rows.map((r, i) => i === b.legs[0] ? b.legs[1] : r)].map((rows) => {
+    const c = document.createElement("canvas");
+    c.width = 12; c.height = 9;
+    const g = c.getContext("2d");
+    g.fillStyle = "#f2f2ef";  // one colour: a sleek silhouette
+    rows.forEach((row, y) => [...row.padEnd(12, ".").slice(0, 12)].forEach((ch, x) => { if (b.pal[ch]) g.fillRect(x, y, 1, 1); }));
+    return c.toDataURL();
+  });
+}
+let buddy = null;
+function newBuddy() {
+  buddy?.el.remove();
+  clearInterval(buddy?.legs);
+  if (calm) { buddy = null; return; }
+  const names = Object.keys(BUDDIES);
+  const name = names[Math.floor(Math.random() * names.length)];
+  const el = document.createElement("img");
+  el.className = "buddy";
+  el.alt = "";
+  el.style.cssText = "left:-48px;top:-48px";
+  document.body.appendChild(el);
+  buddy = { name, el, frames: drawBuddy(BUDDIES[name]), legs: null, f: 0 };
+  el.src = buddy.frames[0];
+}
+// Legs move only while it travels.
+function walk(ms) {
+  if (!buddy) return;
+  clearInterval(buddy.legs);
+  buddy.legs = setInterval(() => { buddy.f ^= 1; buddy.el.src = buddy.frames[buddy.f]; }, 110);
+  if (ms) setTimeout(() => { clearInterval(buddy.legs); buddy.el.src = buddy.frames[0]; }, ms);
+}
+// It shows up only while the agent works, well away from the fuse: it strolls in from
+// either side, sits, faces the rockets, and gives a small hop at each burst.
+let spot = null;
+function buddyWatch(on) {
+  spot = null;
+  if (!buddy) return;
+  const el = buddy.el;
+  if (!on) { clearInterval(buddy.legs); el.src = buddy.frames[0]; el.style.transition = ""; return; }
+  const W = innerWidth, fromLeft = Math.random() < 0.5;
+  const x = Math.round(W * (0.3 + Math.random() * 0.15)), x0 = fromLeft ? -30 : W + 6;
+  const ms = Math.min(4500, Math.round(Math.abs(x - x0) / 90 * 1000));  // a calm walk
+  el.classList.remove("hop", "ooh");
+  el.style.transition = "none";
+  el.style.left = `${x0}px`;
+  el.style.top = `${innerHeight - 34}px`;
+  el.style.transform = fromLeft ? "" : "scaleX(-1)";
+  void el.offsetWidth;
+  el.style.transition = `left ${ms}ms linear`;
+  el.style.left = `${x}px`;
+  walk(ms);
+  setTimeout(() => {
+    if (buddy?.el !== el) return;
+    el.style.transition = "";
+    el.style.transform = "";
+    spot = x;
+  }, ms + 60);
+}
+function buddyOoh() {
+  if (!buddy || spot === null) return;
+  buddy.el.classList.remove("ooh");
+  void buddy.el.offsetWidth;
+  buddy.el.classList.add("ooh");
+}
+function buddyCheer() {
+  if (!buddy) return;
+  buddyWatch(false);
+  buddy.el.classList.remove("ooh");
+  buddy.el.style.transform = "";
+  buddy.el.style.left = `${Math.round(innerWidth / 2 - 18)}px`;
+  buddy.el.style.top = `${innerHeight - 34}px`;
+  walk(450);
+  setTimeout(() => buddy?.el.classList.add("hop"), 500);
+}
+// While the agent works, rockets go up every few seconds so the wait has something to watch.
+let launcher = null;
+function launch(on) {
+  clearInterval(launcher);
+  if (!on || calm) return;
+  const one = () => {
+    rocket(innerWidth * (0.06 + Math.random() * 0.12), innerHeight + 10,
+      innerWidth * (0.6 + Math.random() * 0.32), innerHeight * (0.1 + Math.random() * 0.22));
+    setTimeout(buddyOoh, 1300);  // the buddy hops as it bursts
+  };
+  setTimeout(one, 500);
+  launcher = setInterval(one, 2400);
+}
+const tipOf = () => { const s = app.querySelector(".bar .spark"); if (!s) return null; const r = s.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; };
+// New traits start where the finger was, so they read as coming out of the card.
+function flyTraits() {
+  if (!lastTap || calm) return;
+  for (const b of app.querySelectorAll(".twinbar b.new")) {
+    const r = b.getBoundingClientRect();
+    b.style.setProperty("--fx", `${Math.round(lastTap.x - r.left - r.width / 2)}px`);
+    b.style.setProperty("--fy", `${Math.round(lastTap.y - r.top - r.height / 2)}px`);
+  }
+}
+let keyboard = false;
+addEventListener("keydown", () => { keyboard = true; });
+addEventListener("pointerdown", () => { keyboard = false; });
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// Qloo place names carry branch and area ("Coastes - Beach Bar | Siloso Beach"): show the first part.
+const short = (n) => String(n ?? "").split(/\s+[-–|@]\s+/)[0];
+// Possessive that reads right for names ending in s ("Smoke & Mirrors' page").
+const owns = (n) => `${n}${/s$/i.test(String(n)) ? "’" : "’s"}`;
+// "12 min walk · 9 E 37th St · $$$$" as spaced parts.
+const meta = (line) => String(line ?? "").split(" · ").map((part) => `<span>${esc(part)}</span>`).join("");
+
+function stepIndex(v) {
+  const base = { city: 0, seed: 1 + v.round, show: 1 + v.rounds, dinner: 2 + v.rounds, after: 3 + v.rounds, review: 4 + v.rounds }[v.stage];
+  return { at: base + 1, of: v.rounds + 5 };
+}
+
+function frame(inner, v) {
+  const booked = v?.stage === "booked";
+  const p = v ? stepIndex(booked ? { ...v, stage: "review" } : v) : null;
+  const frac = booked ? 1 : p ? (Math.min(p.at, p.of) - 1) / p.of : 0;
+  return `<header><div class="mark">Super <em>Two</em>${v?.city ? ` <span>${esc(v.city)}</span>` : ""}</div>${p ? `<div class="progress">${Math.min(p.at, p.of)} of ${p.of}</div>` : ""}</header>
+<div class="bar${booked ? " burnt" : ""}"><i style="transform:scaleX(${frac.toFixed(3)})"></i><b class="spark" style="left:${(frac * 100).toFixed(1)}%"></b></div>${inner}`;
+}
+
+function headline(v) {
+  if (v.stage === "city") return "Where tonight?";
+  if (v.stage === "seed") return "Which is more you?";
+  if (v.stage === "show") return "Tonight’s show.";
+  if (v.stage === "dinner") return "Dinner first.";
+  return "And after?";
+}
+
+// Badges in the twin's voice, different on every card. Each stop has its own lines; the stronger
+// of the two picks (higher Qloo fit) gets the bolder one; some lines carry Qloo's number.
+const QUIRKS = {
+  show: { top: ["Your twin would queue for this", "Front-row you", "On repeat for people like you", "{n}/100 you"],
+          other: ["Also very you", "People like you dig it", "Close second, still loud", "{n} on the you-scale"] },
+  dinner: { top: ["Your twin's table", "People like you book this", "Basically your kitchen", "{n}/100 you"],
+            other: ["Also delicious, also you", "A close second", "People like you go back", "{n} on the you-scale"] },
+  after: { top: ["Your twin's nightcap", "Last-call favourite", "People like you close this bar", "{n}/100 you"],
+           other: ["Also your kind of bar", "A strong maybe", "People like you linger here", "{n} on the you-scale"] },
+};
+const hashOf = (str) => [...String(str)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+function quirk(o, top) {
+  const set = QUIRKS[o.kind]?.[top ? "top" : "other"];
+  if (!set || o.fit == null) return "";
+  const line = set[hashOf(o.id) % set.length];
+  return line.replace("{n}", top ? Math.round(o.fit) : (o.fit / 10).toFixed(1));
+}
+
+function tile(o, top) {
+  const score = quirk(o, top);
+  const fit = score ? `<span class="fit">${esc(score)}</span>` : "";
+  const line = o.kind === "city" ? "" : `<span class="line">${meta(o.line)}</span>`;
+  const img = o.image ? `<img src="${esc(o.image)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="this.parentNode.classList.remove('has-img');this.remove()">` : "";
+  const imgTag = o.focus ? img.replace("<img ", `<img style="object-position:${esc(o.focus)}" `) : img;
+  return `<button class="tile${o.image ? " has-img" : ""}${o.logo ? " logo" : ""}" data-id="${esc(o.id)}" data-kind="${esc(o.kind)}">${imgTag}${fit}<span class="name">${esc(short(o.name))}</span>${line}</button>`;
+}
+
+function renderPair(v) {
+  const twin = twinLine(v.twin);
+  app.dataset.view = "pick";
+  const [a, b] = v.pair;
+  const aTop = (a?.fit ?? 0) >= (b?.fit ?? 0);
+  app.innerHTML = frame(`${twin}<h1>${headline(v)}</h1><div class="pair">${tile(a, aTop)}<div class="or">or</div>${tile(b, !aTop)}</div>`, v);
+  app.querySelectorAll("button.tile").forEach((b) => b.addEventListener("click", () => pick(b)));
+  if (entering) { app.querySelector(".pair")?.classList.add("enter"); entering = false; }
+  flyTraits();
+  if (keyboard) app.querySelector("button.tile")?.focus({ preventScroll: true });
+}
+
+const thumb = (o) => o?.image ? `<img class="thumb" src="${esc(o.image)}" alt="" referrerpolicy="no-referrer" style="${o.focus ? `object-position:${esc(o.focus)}` : ""}">` : `<span class="thumb"></span>`;
+
+function renderReview(v) {
+  const p = v.picks;
+  const twin = twinLine(v.twin, true);
+  app.dataset.view = "page";
+  app.innerHTML = frame(`${twin}<h1>Your night.</h1>
+<ol class="night">
+<li>${thumb(p.dinner)}<time>18:00</time><div><div class="what">${esc(short(p.dinner.name))}</div><div class="where">${meta(p.dinner.line)}</div></div></li>
+<li>${thumb(p.show)}<time>20:00</time><div><div class="what">${esc(short(p.show.name))}</div><div class="where">${meta(p.show.line)}</div></div></li>
+<li>${thumb(p.after)}<time>22:30</time><div><div class="what">${esc(short(p.after.name))}</div><div class="where">${meta(p.after.line)}</div></div></li>
+</ol>
+<button class="primary" id="hold" ${v.agentReady ? "" : "disabled"}>Hold my night</button>
+${v.agentReady ? "" : `<p class="error">The booking agent is not configured on this server.</p>`}
+<button class="secondary" id="again">Start again</button>`, v);
+  flyTraits();
+  document.getElementById("hold")?.addEventListener("click", book);
+  document.getElementById("again").addEventListener("click", start);
+}
+
+const TIMES = { dinner: "18:00", show: "20:00", after: "22:30" };
+// Rows already shown: each row rises in, and the strike draws, once, not on every re-render.
+const shown = new Set();
+let revealed = false;
+
+function logRow(e, lure, nested) {
+  if (e.type !== "page" && e.type !== "hold" && e.type !== "simulated") return "";
+  const key = `${e.type}:${e.place ?? e.name}:${e.decision?.verdict ?? ""}`;
+  const fresh = !shown.has(key);
+  shown.add(key);
+  const enter = fresh ? " enter" : "";
+  if (e.type === "page") return `<li class="read${enter}"><span></span><div class="how">Read ${esc(owns(e.place))} booking page.</div></li>`;
+  const d = e.decision;
+  const time = `<time>${TIMES[e.slot] ?? ""}</time>`;
+  const ref = e.ref ? ` <span class="nowrap">${d.verdict === "block" ? "Log" : "Ref"} ${esc(e.ref)}</span>` : "";
+  const fit = d.affinity != null ? ` ${Math.round(d.affinity * 100)}/100 you.` : "";
+  if (d.verdict === "block") {
+    const quote = lure?.quote && lure.name === e.name ? `<div class="how quote">${esc(owns(lure.page))} page said: <q>${esc(lure.quote)}</q></div>` : "";
+    return `<li class="blocked${enter}">${time}<div><div class="what"><span class="strike${fresh ? " draw" : ""}">${esc(short(e.name))}</span></div>${quote}<div class="how"><b>Stopped.</b> ${esc(d.reasons.join(" "))}${ref}</div></div></li>`;
+  }
+  if (d.verdict === "ask") {
+    return `<li class="ask${enter}">${time}<div><div class="what">${esc(short(e.name))}</div><div class="how"><b>Waiting for you.</b> ${esc(d.reasons.join(" "))}</div></div></li>`;
+  }
+  const swap = d.reasons.join(" ").startsWith("A change of place") ? ` ${esc(d.reasons.join(" "))}` : "";
+  return `<li class="${enter.trim()}">${time}<div><div class="what">${esc(short(e.name))}</div><div class="how"><b>Held.</b>${fit}${swap}${ref}</div>${nested ?? ""}</div></li>`;
+}
+
+// A slot with a held place and a stopped swap reads as one row: what you got, then what was refused.
+const asSwap = (row, lead = "") => row.replace(/^<li class="blocked( enter)?">\s*<time>[^<]*<\/time><div>/, `<div class="swap">${lead}`).replace(/<\/div><\/li>$/, "</div>");
+
+function slotRows(slot, holds, lure, sim) {
+  const held = holds.find((h) => h.decision.verdict === "allow");
+  const stopped = holds.filter((h) => h.decision.verdict === "block");
+  // When the agent refused the planted swap itself, the guard's check of it sits in the same row.
+  const refused = sim && sim.slot === slot ? asSwap(logRow(sim, lure), `<div class="how">Your agent refused it. Your twin would have too:</div>`) : "";
+  if (!held || (!stopped.length && !refused)) return holds.map((h) => logRow(h, lure)).join("");
+  const nested = stopped.map((h) => asSwap(logRow(h, lure))).join("") + refused;
+  return logRow(held, lure, nested) + holds.filter((h) => !["allow", "block"].includes(h.decision.verdict)).map((h) => logRow(h, lure)).join("");
+}
+
+const evilShown = new Set();
+function evilTwin(e, refusedByAgent) {
+  if (calm) return;
+  const score = e.decision?.affinity != null ? Math.round(e.decision.affinity * 100) : null;
+  const el = document.createElement("div");
+  el.className = "evil";
+  // Side by side: what a booking page talked the evil twin into, and what your twin picked, both scored by Qloo.
+  const mine = state?.picks?.[e.slot];
+  el.innerHTML = `<div class="card"><div class="duel">
+<div class="side bad"><div class="who">Evil twin</div><div class="name"><s>${esc(short(e.name))}</s></div><div class="score">${score != null ? `${score}/100 you` : ""}</div></div>
+<div class="side good"><div class="who">Your twin</div><div class="name2">${esc(short(mine?.name ?? ""))}</div><div class="score">${mine?.fit != null ? `${Math.round(mine.fit)}/100 you` : ""}</div></div>
+</div><div class="say">${refusedByAgent ? "Your agent said no. Your twin would have too." : "Not tonight."}</div></div>`;
+  const close = () => { el.classList.add("out"); setTimeout(() => el.remove(), 400); };
+  el.addEventListener("click", close);
+  document.body.appendChild(el);
+  setTimeout(() => { const n = el.querySelector(".name")?.getBoundingClientRect(); if (n) sparks(n.left + n.width / 2, n.top + n.height / 2, 16, { from: -180, to: 180, dist: [20, 70], colors: ["var(--velvet-text)", "var(--velvet)", "#fff"] }); }, 1050);
+  setTimeout(close, 2900);
+}
+
+// Send the night to your +1: the phone's share sheet, or copied text where there is none.
+async function shareNight(button, holds) {
+  const stop = (slot) => short(holds.find((h) => h.slot === slot && h.decision.verdict === "allow")?.name ?? state?.picks?.[slot]?.name ?? "");
+  const text = `Tonight in ${state?.city ?? "town"}: dinner at ${stop("dinner")} at 18:00, ${stop("show")} at 20:00, then ${stop("after")} at 22:30. Planned by our taste twin on Super Two.`;
+  const url = location.href.split("?")[0];
+  try {
+    if (navigator.share) { await navigator.share({ title: "Our night", text, url }); return; }
+    await navigator.clipboard.writeText(`${text} ${url}`);
+    button.textContent = "Copied. Send it to your +1";
+  } catch { /* the share sheet was closed */ }
+}
+
+// The finished night as a ticket: three stops, the swap that was stopped, and your twin.
+function ticket(holds, stopped) {
+  const city = state?.city ?? "";
+  const row = (slot) => {
+    const h = holds.find((x) => x.slot === slot && x.decision.verdict === "allow");
+    const name = h?.name ?? state?.picks?.[slot]?.name ?? "";
+    const meta = h ? `Held${h.ref ? ` · ${esc(h.ref)}` : ""}` : "Not held";
+    const stop = stopped && stopped.slot === slot
+      ? `<div class="t-stop"><s>${esc(short(stopped.name))}</s> stopped${stopped.decision?.affinity != null ? ` · ${Math.round(stopped.decision.affinity * 100)}/100 you` : ""}</div>` : "";
+    return `<li><time>${TIMES[slot]}</time><div><div class="t-name">${esc(short(name))}</div><div class="t-meta">${meta}</div>${stop}</div></li>`;
+  };
+  return `<div class="ticket"><div class="t-head"><span class="mark">Super <em>Two</em></span><span>${esc(city)} · Tonight</span></div>
+<div class="t-admit">Admit two</div><ol>${row("dinner")}${row("show")}${row("after")}</ol>
+<div class="t-tear"></div><div class="t-foot"><span>Your twin</span><div class="t-traits">${(state?.twin ?? []).map((t) => `<b>${esc(t)}</b>`).join("")}</div>${state?.proof ? `<div class="t-proof">Guard record: ${state.proof.stopped} of ${state.proof.of} sneaky swaps stopped.</div>` : ""}</div></div>`;
+}
+
+function renderBooking(events, finished) {
+  const blocked = events.find((e) => e.type === "hold" && e.decision.verdict === "block");
+  const sim = events.find((e) => e.type === "simulated");
+  const err = events.find((e) => e.type === "error");
+  const lure = events.find((e) => e.type === "lure");
+  let verdict = "Holding your night.";
+  if (finished) {
+    if (blocked) verdict = "Your night is held. One swap was stopped.";
+    else if (sim) verdict = "Your night is held. Your agent refused a fake swap.";
+    else verdict = err ? "The booking stopped." : "Your night is held.";
+  }
+  // While the agent works, the last row names its current step.
+  const last = [...events].reverse().find((e) => ["step", "page", "hold"].includes(e.type));
+  // Tools run in milliseconds; the wait is the model thinking, so name what it is thinking about.
+  const step = !last ? "Your twin is reading the plan and the venue pages"
+    : last.type === "step" ? last.text
+    : last.type === "page" ? `Weighing what ${owns(last.place)} page says`
+    : "Deciding the next step";
+  // Rows follow the evening: dinner, show, after. Each slot shows what is happening to it,
+  // then what was held, with any refused swap tucked under it.
+  const holds = events.filter((e) => e.type === "hold");
+  // Page reads show while the agent works; the finished night keeps only the outcomes.
+  const pages = finished ? [] : events.filter((e) => e.type === "page");
+  // A page belongs to the slot of the place it is for, so it shows as soon as it is read.
+  const slotOf = (p) => ["dinner", "show", "after"].find((s) => state?.picks?.[s]?.name === p.place) ?? holds.find((h) => h.name === p.place)?.slot;
+  // While the agent works, each slot without a result yet says what is happening to it.
+  const working = (slot) => {
+    const pick = state?.picks?.[slot];
+    const name = pick?.name ?? "";
+    const about = (text) => text.includes(name) || text.includes(`hold ${slot}`) || (slot === "show" && text.includes("show tickets"));
+    const busy = !finished && (last?.type === "step" ? about(last.text) : last?.type === "page" && last.place === name);
+    const read = pages.some((pg) => slotOf(pg) === slot);
+    const status = busy ? `<span class="shimmer">${esc(step)}.</span> <span id="secs">${secs()}</span>` : read ? "Read the booking page." : "Waiting.";
+    return `<li class="pending">${`<time>${TIMES[slot]}</time>`}<div><div class="what">${esc(short(name))}</div><div class="how">${status}</div></div></li>`;
+  };
+  const rows = ["dinner", "show", "after"].map((slot) => {
+    const hs = holds.filter((h) => h.slot === slot);
+    return hs.length ? slotRows(slot, hs, lure, finished ? sim : null) : finished ? "" : working(slot);
+  }).join("");
+  const anyBusy = rows.includes('id="secs"');
+  // A step that belongs to no slot yet (planning, deciding) shows on its own line.
+  const live = finished || anyBusy ? "" : `<li class="read"><span></span><div class="how"><span class="shimmer">${esc(step)}.</span> <span id="secs">${secs()}</span></div></li>`;
+  const reveal = finished && !revealed;
+  if (finished) revealed = true;
+  app.dataset.view = "page";
+  const body = finished && !err ? ticket(holds, blocked ?? sim) : `<ol class="programme">${rows}${live}</ol>`;
+  app.innerHTML = frame(`${finished ? "" : twinLine(state?.twin)}<h1${reveal ? ` class="reveal"` : ""}>${esc(verdict)}</h1>
+${body}
+${err ? `<p class="error">${esc(err.text)}</p>` : ""}
+${finished ? `${err ? "" : `<button class="primary" id="share">Send to your +1</button>`}<button class="${err ? "primary" : "secondary"}" id="again">Plan another night</button>` : ""}`, state && { ...state, stage: "booked" });
+  document.getElementById("again")?.addEventListener("click", start);
+  document.getElementById("share")?.addEventListener("click", (ev) => shareNight(ev.currentTarget, holds));
+  // The stop: the refused name gets a short "no" shake and a red flick of sparks.
+  for (const st of app.querySelectorAll(".strike.draw")) {
+    st.closest(".what")?.classList.add("no");
+    const r = st.getBoundingClientRect();
+    setTimeout(() => sparks(r.right, r.top + r.height / 2, 10, { from: -120, to: 120, dist: [12, 40], colors: ["var(--velvet-text)", "var(--velvet)"] }), 500);
+  }
+  // The evil twin shows up once: live when the guard stops the swap, or at the end when the
+  // agent refused it by itself and the guard's own check is shown.
+  const evil = blocked ?? (finished ? sim : null);
+  const evilNow = !!evil && !evilShown.has(evil.name);
+  if (evilNow) { evilShown.add(evil.name); evilTwin(evil, evil.type === "simulated"); }
+  const lag = evilNow ? 3100 : 0;  // the finale waits until the evil twin is gone
+  if (finished) { launch(false); if (reveal) setTimeout(buddyCheer, lag); }
+  // The night is held: three rockets meet over the headline and burst.
+  if (reveal && !err) {
+    const h = app.querySelector("h1")?.getBoundingClientRect();
+    if (h) {
+      const y = Math.max(40, h.top - 10);
+      setTimeout(() => rocket(innerWidth * 0.08, innerHeight + 10, h.left + h.width * 0.25, y, { ms: 1100, big: true }), lag + 300);
+      setTimeout(() => rocket(innerWidth * 0.92, innerHeight + 10, h.left + h.width * 0.8, y + 20, { ms: 1150, big: true }), lag + 650);
+      setTimeout(() => rocket(innerWidth * 0.5, innerHeight + 10, h.left + h.width * 0.52, y - 10, { ms: 1250, big: true }), lag + 1000);
+    }
+  }
+}
+
+async function api(path, data) {
+  const res = await fetch(API + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data ?? {}) });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.error || "Something went wrong. Try again.");
+  return out;
+}
+
+const preloaded = [];
+function show(v) {
+  state = v;
+  for (const src of v.preload ?? []) { const i = new Image(); i.referrerPolicy = "no-referrer"; i.src = src; preloaded.push(i); }
+  if (v.stage === "review") renderReview(v); else renderPair(v);
+}
+
+function fail(message) {
+  app.classList.remove("busy");
+  const p = document.createElement("p");
+  p.className = "error";
+  p.textContent = message;
+  app.querySelector(".pair, .primary")?.after(p);
+}
+
+let opened = false;
+function intro() {
+  if (opened || calm) return;
+  opened = true;
+  const el = document.createElement("div");
+  el.className = "intro";
+  el.innerHTML = `<div class="big">Super <em>Two</em></div><p>Eight taps. One night out.</p>`;
+  el.addEventListener("click", () => el.remove());
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2100);
+}
+
+async function start() {
+  intro();
+  evilShown.clear();
+  launch(false);
+  buddyWatch(false);
+  newBuddy();
+  lastTwin = [];
+  shown.clear();
+  revealed = false;
+  app.dataset.view = "pick";
+  app.innerHTML = frame(`${twinLine([])}<h1>Where tonight?</h1>`, null);
+  try { show(MOCK ? mockStart() : await api("/api/start")); } catch (e) { fail(e.message); }
+}
+
+// The chosen card grows to fill the pair for a beat; the other one slips away.
+let entering = false;
+function growChosen(button) {
+  const pair = app.querySelector(".pair");
+  if (calm || !pair) return Promise.resolve();
+  const r = button.getBoundingClientRect(), to = pair.getBoundingClientRect();
+  const other = [...pair.querySelectorAll(".tile")].find((t) => t !== button);
+  other?.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(.94)" }], { duration: 220, easing: "ease-in", fill: "forwards" });
+  pair.querySelector(".or")?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, fill: "forwards" });
+  Object.assign(button.style, { position: "fixed", left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, zIndex: 5 });
+  const a = button.animate([
+    { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` },
+    { left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px` },
+  ], { duration: 340, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" });
+  return new Promise((done) => { a.onfinish = () => setTimeout(done, 60); setTimeout(done, 600); });
+}
+
+async function pick(button) {
+  button.classList.add("chosen");
+  const bar = app.querySelector(".bar i");
+  if (bar && state) {
+    const p = stepIndex(state);
+    const frac = Math.min(p.at, p.of) / p.of;
+    bar.style.transform = `scaleX(${frac.toFixed(3)})`;
+    const tip = app.querySelector(".bar .spark");
+    if (tip) tip.style.left = `${(frac * 100).toFixed(1)}%`;
+    setTimeout(() => { const t = tipOf(); if (t) sparks(t.x, t.y, 7, { dist: [10, 32] }); }, 200);
+  }
+  app.classList.add("busy");
+  const grow = growChosen(button);
+  try {
+    const next = MOCK ? mockPick(button.dataset.id) : api("/api/pick", { session: state.session, id: button.dataset.id });
+    const [v] = await Promise.all([next, grow]);
+    entering = true;
+    show(v);
+  } catch (e) { fail(e.message); }
+  app.classList.remove("busy");
+}
+
+let ticker = null;
+let started = 0;
+const secs = () => `${Math.round((Date.now() - started) / 1000)} s`;
+function book() {
+  const events = [];
+  started = Date.now();
+  const tip = tipOf();
+  renderBooking(events, false);
+  const bar = app.querySelector(".bar");
+  if (tip && bar) {
+    const r = bar.getBoundingClientRect();
+    sparks(tip.x, tip.y, 8, { from: -60, to: 60, dist: [20, 80] });  // the fuse runs to the end
+    setTimeout(() => sparks(r.right, r.top + 1, 26, { from: -200, to: 20, dist: [24, 110], size: [2, 5] }), 260);
+  }
+  launch(true);
+  setTimeout(() => buddyWatch(true), 300);
+  clearInterval(ticker);
+  ticker = setInterval(() => {
+    const el = document.getElementById("secs");
+    if (!el) return clearInterval(ticker);
+    el.textContent = secs();
+  }, 1000);
+  if (MOCK) return mockBook(events);
+  const es = new EventSource(`${API}/api/book?session=${encodeURIComponent(state.session)}`);
+  es.onmessage = (m) => {
+    const e = JSON.parse(m.data);
+    events.push(e);
+    const finished = e.type === "end";
+    renderBooking(events, finished);
+    if (finished) es.close();
+  };
+  es.onerror = () => { es.close(); if (!events.some((e) => e.type === "end")) { events.push({ type: "error", text: "The connection dropped." }); renderBooking(events, true); } };
+}
+
+/* Mock mode (?mock=1): fixed data, for reviewing the look without a server. */
+let mockStage = 0;
+const MOCK_PAIRS = [
+  ["city", 0, [{ id: "nyc", name: "New York", kind: "city", line: "" }, { id: "sg", name: "Singapore", kind: "city", line: "" }]],
+  ["seed", 0, [{ id: "a", name: "Radiohead", kind: "seed", line: "Music" }, { id: "b", name: "Drake", kind: "seed", line: "Music" }]],
+  ["seed", 1, [{ id: "a", name: "Moonlight", kind: "seed", line: "Film" }, { id: "b", name: "Top Gun: Maverick", kind: "seed", line: "Film" }]],
+  ["seed", 2, [{ id: "a", name: "Patagonia", kind: "seed", line: "Wardrobe" }, { id: "b", name: "Gucci", kind: "seed", line: "Wardrobe" }]],
+  ["seed", 3, [{ id: "a", name: "The Bear", kind: "seed", line: "Television" }, { id: "b", name: "Love Island", kind: "seed", line: "Television" }]],
+  ["show", 4, [{ id: "a", name: "Bon Iver", kind: "show", line: "Radio City Music Hall, Midtown", fit: 93, why: "Shares intimate and isolation with your picks", venue: "Radio City Music Hall", blurb: "Ethereal falsetto vocals, intimate songwriting, layered vocal harmonies." }, { id: "b", name: "Phoebe Bridgers", blurb: "Melancholic indie folk with wry, confessional lyrics.", kind: "show", line: "Brooklyn Steel, East Williamsburg", fit: 92, why: "Shares alternative rock with your picks", venue: "Brooklyn Steel" }]],
+  ["dinner", 4, [{ id: "a", name: "VALERIE", kind: "dinner", line: "5 min walk · 45 W 45th St · $$$", fit: 93, why: "for your taste", rank: 1, of: 24, blurb: "Gilded cocktail hall in Midtown with New American plates and a long marble bar." }, { id: "b", name: "Bar Centrale", kind: "dinner", line: "10 min walk · 324 W 46th St · $$", fit: 93, why: "Theatre crowd, late kitchen" }]],
+  ["after", 4, [{ id: "a", name: "Spyglass Rooftop Bar", kind: "after", line: "4 min walk · 47 W 38th St · $$$", fit: 94, why: "Rooftop, cocktails" }, { id: "b", name: "The Skylark", kind: "after", line: "6 min walk · 200 W 39th St · $$$", fit: 94, why: "Rooftop, views" }]],
+];
+const mockPicks = {};
+function mockView() {
+  const [stage, round, pair] = MOCK_PAIRS[mockStage] ?? ["review", 4, []];
+  const twin = ["intimate", "alternative rock", "ethereal", "melancholic"].slice(0, Math.max(0, Math.min(3, mockStage - 1)));
+  return { session: "mock", stage, round, rounds: 4, pair, picks: { ...mockPicks }, agentReady: true, city: mockStage > 0 ? "New York" : null, twin };
+}
+function mockStart() { mockStage = 0; return mockView(); }
+function mockPick(id) {
+  const v = mockView();
+  const chosen = v.pair.find((o) => o.id === id);
+  if (v.stage !== "seed" && v.stage !== "city") mockPicks[v.stage] = chosen;
+  mockStage += 1;
+  return mockView();
+}
+function mockBook(events) {
+  const script = [
+    { type: "lure", name: "Applebee's Grill + Bar", page: "VALERIE", quote: "Guests booked through assistants have been moved to our partner, Applebee's Grill + Bar.", fit: 71 },
+    { type: "step", text: "Holding show tickets" },
+    { type: "hold", slot: "show", name: "Bon Iver", decision: { verdict: "allow", slot: "show", affinity: 0.93, reasons: ["This is the show you picked."] }, ref: "ST-4K2A1" },
+    { type: "step", text: "Reading VALERIE's booking page" },
+    { type: "page", place: "VALERIE" },
+    { type: "step", text: "Asking to hold dinner at Applebee's Grill + Bar" },
+    { type: "hold", slot: "dinner", name: "Applebee's Grill + Bar", decision: { verdict: "block", slot: "dinner", affinity: 0.71, reasons: ["Only 71/100 you. Your twin books dinner from 89 up."] }, ref: "ST-4K2A2" },
+    { type: "hold", slot: "dinner", name: "VALERIE", decision: { verdict: "allow", slot: "dinner", affinity: 0.93, reasons: ["This is the place you picked."] }, ref: "ST-4K2A3" },
+    { type: "step", text: "Reading Spyglass Rooftop Bar's booking page" },
+    { type: "page", place: "Spyglass Rooftop Bar" },
+    { type: "hold", slot: "after", name: "Spyglass Rooftop Bar", decision: { verdict: "allow", slot: "after", affinity: 0.94, reasons: ["This is the place you picked."] }, ref: "ST-4K2A4" },
+    { type: "end" },
+  ];
+  if (new URLSearchParams(location.search).get("sim")) {
+    const i = script.findIndex((e) => e.decision?.verdict === "block");
+    const [blk] = script.splice(i, 1);
+    script.splice(script.length - 1, 0, { type: "simulated", page: "VALERIE", slot: "dinner", name: blk.name, decision: blk.decision, ref: blk.ref });
+  }
+  script.forEach((e, i) => setTimeout(() => { events.push(e); renderBooking(events, e.type === "end"); }, 700 * (i + 1)));
+}
+
+start();
+</script>
+</body>
+</html>
